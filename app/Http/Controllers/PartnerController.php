@@ -67,22 +67,45 @@ class PartnerController extends Controller
     public function store(Request $request)
     {
         // Validación de los campos
-        $fields = $request->validate([
-            'name' => 'required',
-            'surname' => 'required',
-            'document_number' => 'required',
-            'birthdate' => 'required',
-            'phone' => 'required',
-            'status' => 'required',
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif'
+        $validatedData = $request->validate([
+            'name' => 'required|string',
+            'surname' => 'required|string',
+            'document_number' => 'required|string',
+            'birthdate' => 'required|date',
+            'phone' => 'required|string',
+            'photo' => 'nullable|string', // Base64
+            'status' => 'required|in:active,inactive',
         ]);
+    
+        if (!empty($validatedData['photo'])) {
+            $imageData = base64_decode($validatedData['photo']);
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_buffer($finfo, $imageData);
+            finfo_close($finfo);
 
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('partners', 'public');
-            $fields['photo'] = $photoPath; 
+            $extensions = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+            ];
+    
+            if (!isset($extensions[$mimeType])) {
+                return response()->json([
+                    'message' => 'Unsupported image format.',
+                ], 400);
+            }
+
+            $extension = $extensions[$mimeType];
+            $imageName = uniqid() . '.' . $extension;
+
+            $photoPath = 'partners/' . $imageName;
+            Storage::put($photoPath, $imageData);
+            $validatedData['photo'] = $photoPath;
+        } else {
+            $validatedData['photo'] = 'partners/default_avatar.png';
         }
 
-        $partner = Partner::create($fields);
+        $partner = Partner::create($validatedData);
 
         return response()->json($partner, 201);
     }
@@ -92,34 +115,52 @@ class PartnerController extends Controller
      */
     public function update(Request $request, Partner $partner)
     {
-
         // Validación de los campos
-        $fields = $request->validate([
-            'name' => 'required',
-            'surname' => 'required',
-            'document_number' => 'required',
-            'birthdate' => 'required',
-            'phone' => 'required',
-            'status' => 'required',
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif'
+        $validatedData = $request->validate([
+            'name' => 'required|string',
+            'surname' => 'required|string',
+            'document_number' => 'required|string',
+            'birthdate' => 'required|date',
+            'phone' => 'required|string',
+            'photo' => 'nullable|string', // Base64.
+            'status' => 'required|in:active,inactive',
         ]);
 
+        if ($request->has('photo') && $request->photo) {
+            $oldImagePath = $partner->photo;
+            $imageData = base64_decode($request->photo);
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_buffer($finfo, $imageData);
+            finfo_close($finfo);
 
-        if ($request->hasFile('photo')) {
-
-            if ($partner->photo && Storage::exists("public/{$partner->photo}")) {
-                Storage::delete("public/{$partner->photo}");
+            $extensions = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+            ];
+    
+            if (!isset($extensions[$mimeType])) {
+                return response()->json([
+                    'message' => 'Unsupported image format.',
+                ], 400);
+            }
+    
+            $extension = $extensions[$mimeType];
+            $imageName = uniqid() . '.' . $extension;
+            $imagePath = 'partners/' . $imageName;
+    
+            Storage::disk('public')->put($imagePath, $imageData);
+    
+            if ($oldImagePath && Storage::disk('public')->exists($oldImagePath)) {
+                Storage::disk('public')->delete($oldImagePath);
             }
 
-            $photoPath = $request->file('photo')->store('partners', 'public');
-            $fields['photo'] = $photoPath;
+            $validatedData['photo'] = $imagePath;
+        } else {
+            unset($validatedData['photo']);
         }
 
-        if (empty($fields['photo'])) {
-            unset($fields['photo']);
-        }
-
-        $partner->update($fields);
+        $partner->update($validatedData);
 
         return response()->json($partner, 200);
     }
