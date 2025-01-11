@@ -5,9 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\Partner;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PartnerController extends Controller
 {
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(Partner $partner)
+    {
+        return $partner;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -56,27 +66,25 @@ class PartnerController extends Controller
      */
     public function store(Request $request)
     {
+        // Validación de los campos
         $fields = $request->validate([
             'name' => 'required',
             'surname' => 'required',
             'document_number' => 'required',
             'birthdate' => 'required',
             'phone' => 'required',
-            'photo' => 'required',
-            'status' => 'required'
+            'status' => 'required',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif'
         ]);
+
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store('partners', 'public');
+            $fields['photo'] = $photoPath; 
+        }
 
         $partner = Partner::create($fields);
 
-        return $partner;
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Partner $partner)
-    {
-        return $partner;
+        return response()->json($partner, 201);
     }
 
     /**
@@ -84,19 +92,36 @@ class PartnerController extends Controller
      */
     public function update(Request $request, Partner $partner)
     {
+
+        // Validación de los campos
         $fields = $request->validate([
             'name' => 'required',
             'surname' => 'required',
             'document_number' => 'required',
             'birthdate' => 'required',
             'phone' => 'required',
-            'photo' => 'required',
-            'status' => 'required'
+            'status' => 'required',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif'
         ]);
+
+
+        if ($request->hasFile('photo')) {
+
+            if ($partner->photo && Storage::exists("public/{$partner->photo}")) {
+                Storage::delete("public/{$partner->photo}");
+            }
+
+            $photoPath = $request->file('photo')->store('partners', 'public');
+            $fields['photo'] = $photoPath;
+        }
+
+        if (empty($fields['photo'])) {
+            unset($fields['photo']);
+        }
 
         $partner->update($fields);
 
-        return $partner;
+        return response()->json($partner, 200);
     }
 
     /**
