@@ -11,9 +11,44 @@ class PartnerController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Partner::all();
+        $query = $request->query('query', '');
+        $offset = (int) $request->query('offset', 0);
+        $limit = (int) $request->query('limit', 6);
+
+        $partnersQuery = Partner::query();
+
+        if (!empty($query)) {
+            $partnersQuery->where(function ($subQuery) use ($query) {
+                $subQuery->where('name', 'LIKE', "%{$query}%")
+                    ->orWhere('surname', 'LIKE', "%{$query}%")
+                    ->orWhere('birthdate', 'LIKE', "%{$query}%")
+                    ->orWhere('document_number', 'LIKE', "%{$query}%");
+            });
+        }
+
+        $partners = $partnersQuery
+            ->skip($offset)
+            ->take($limit)
+            ->get();
+
+        return $partners;
+    }
+
+    public function getTotalPages(Request $request)
+    {
+
+        $query = $request->query('query', '');
+        $itemsPerPage = $request->query('itemsPerPage', 6);
+
+        $totalRecords = Partner::where('name', 'LIKE', "%{$query}%")
+            ->orWhere('surname', 'LIKE', "%{$query}%")
+            ->count();
+
+        $totalPages = ceil($totalRecords / $itemsPerPage);
+
+        return ['totalPages' => $totalPages];
     }
 
     /**

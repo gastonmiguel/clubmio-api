@@ -12,7 +12,9 @@ use App\Http\Middleware\SetDatabaseConnection;
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(['auth:sanctum', SetDatabaseConnection::class])->group(function () {
+
+    Route::get('/partners/pages', [PartnerController::class, 'getTotalPages']);
     Route::apiResource('partners', PartnerController::class);
+
     Route::post('/logout', [AuthController::class, 'logout']);
 });
-
