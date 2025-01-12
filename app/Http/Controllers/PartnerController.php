@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Partner;
+use App\Services\ImageService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -10,18 +11,19 @@ use Illuminate\Support\Facades\Storage;
 class PartnerController extends Controller
 {
 
-    /**
-     * Display the specified resource.
-     */
+    protected $imageService;
+
+    public function __construct(ImageService $imageService)
+    {
+        $this->imageService = $imageService;
+    }
+
     public function show(int $id)
     {
         $partner = Partner::find($id);
         return $partner;
     }
 
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
         $query = $request->query('query', '');
@@ -62,46 +64,28 @@ class PartnerController extends Controller
         return ['totalPages' => $totalPages];
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        // Validación de los campos
         $validatedData = $request->validate([
             'name' => 'required|string',
             'surname' => 'required|string',
             'document_number' => 'required|string',
             'birthdate' => 'required|date',
             'phone' => 'required|string',
-            'photo' => 'nullable|string', // Base64
+            'photo' => 'nullable|string', // Base64.
             'status' => 'required|in:active,inactive',
         ]);
 
-        if (!empty($validatedData['photo'])) {
-            $imageData = base64_decode($validatedData['photo']);
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_buffer($finfo, $imageData);
-            finfo_close($finfo);
+        if ($request->has('photo') && $request->photo) {
+            $imagePath = $this->imageService->saveImage($request->photo);
 
-            $extensions = [
-                'image/jpeg' => 'jpg',
-                'image/png' => 'png',
-                'image/gif' => 'gif',
-            ];
-
-            if (!isset($extensions[$mimeType])) {
+            if ($imagePath === false) {
                 return response()->json([
-                    'message' => 'Unsupported image format.',
+                    'message' => 'Unsupported image format or error saving the image.',
                 ], 400);
             }
 
-            $extension = $extensions[$mimeType];
-            $imageName = uniqid() . '.' . $extension;
-
-            $photoPath = 'partners/' . $imageName;
-            Storage::put($photoPath, $imageData);
-            $validatedData['photo'] = $photoPath;
+            $validatedData['photo'] = $imagePath;
         } else {
             $validatedData['photo'] = 'partners/default_avatar.png';
         }
@@ -111,12 +95,8 @@ class PartnerController extends Controller
         return response()->json($partner, 201);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, $id)
     {
-        // Validación de los campos
         $validatedData = $request->validate([
             'name' => 'required|string',
             'surname' => 'required|string',
@@ -131,31 +111,17 @@ class PartnerController extends Controller
 
         if ($request->has('photo') && $request->photo) {
             $oldImagePath = $partner->photo;
-            $imageData = base64_decode($request->photo);
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_buffer($finfo, $imageData);
-            finfo_close($finfo);
 
-            $extensions = [
-                'image/jpeg' => 'jpg',
-                'image/png' => 'png',
-                'image/gif' => 'gif',
-            ];
+            $imagePath = $this->imageService->saveImage($request->photo);
 
-            if (!isset($extensions[$mimeType])) {
+            if ($imagePath === false) {
                 return response()->json([
-                    'message' => 'Unsupported image format.',
+                    'message' => 'Unsupported image format or error saving the image.',
                 ], 400);
             }
 
-            $extension = $extensions[$mimeType];
-            $imageName = uniqid() . '.' . $extension;
-            $imagePath = 'partners/' . $imageName;
-
-            Storage::disk('public')->put($imagePath, $imageData);
-
             if ($oldImagePath && Storage::disk('public')->exists($oldImagePath)) {
-                Storage::disk('public')->delete($oldImagePath);
+                $this->imageService->deleteImage($oldImagePath);
             }
 
             $validatedData['photo'] = $imagePath;
@@ -168,9 +134,6 @@ class PartnerController extends Controller
         return response()->json($partner, 200);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy($id)
     {
         // $partner = Partner::find($id);
