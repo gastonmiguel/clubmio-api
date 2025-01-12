@@ -7,7 +7,7 @@ use Intervention\Image\Facades\Image;
 
 class ImageService
 {
-    public function saveImage($imageData, $directory = 'partners')
+    public function saveImage($imageData, $directory = 'images')
     {
         $imageData = base64_decode($imageData);
 
