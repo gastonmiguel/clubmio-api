@@ -13,8 +13,9 @@ class PartnerController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Partner $partner)
+    public function show(int $id)
     {
+        $partner = Partner::find($id);
         return $partner;
     }
 
@@ -76,7 +77,7 @@ class PartnerController extends Controller
             'photo' => 'nullable|string', // Base64
             'status' => 'required|in:active,inactive',
         ]);
-    
+
         if (!empty($validatedData['photo'])) {
             $imageData = base64_decode($validatedData['photo']);
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -88,7 +89,7 @@ class PartnerController extends Controller
                 'image/png' => 'png',
                 'image/gif' => 'gif',
             ];
-    
+
             if (!isset($extensions[$mimeType])) {
                 return response()->json([
                     'message' => 'Unsupported image format.',
@@ -113,7 +114,7 @@ class PartnerController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Partner $partner)
+    public function update(Request $request, $id)
     {
         // Validación de los campos
         $validatedData = $request->validate([
@@ -125,6 +126,8 @@ class PartnerController extends Controller
             'photo' => 'nullable|string', // Base64.
             'status' => 'required|in:active,inactive',
         ]);
+
+        $partner = Partner::find($id);
 
         if ($request->has('photo') && $request->photo) {
             $oldImagePath = $partner->photo;
@@ -138,19 +141,19 @@ class PartnerController extends Controller
                 'image/png' => 'png',
                 'image/gif' => 'gif',
             ];
-    
+
             if (!isset($extensions[$mimeType])) {
                 return response()->json([
                     'message' => 'Unsupported image format.',
                 ], 400);
             }
-    
+
             $extension = $extensions[$mimeType];
             $imageName = uniqid() . '.' . $extension;
             $imagePath = 'partners/' . $imageName;
-    
+
             Storage::disk('public')->put($imagePath, $imageData);
-    
+
             if ($oldImagePath && Storage::disk('public')->exists($oldImagePath)) {
                 Storage::disk('public')->delete($oldImagePath);
             }
@@ -168,8 +171,9 @@ class PartnerController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Partner $partner)
+    public function destroy($id)
     {
+        // $partner = Partner::find($id);
         // $partner->delete()
     }
 }
