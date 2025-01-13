@@ -14,6 +14,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware(['auth:sanctum', SetDatabaseConnection::class])->group(function () {
 
     Route::get('/partners/pages', [PartnerController::class, 'getTotalPages']);
+    Route::get('/partners/upcoming-birthdays', [PartnerController::class, 'getUpcomingBirthdays']);
     Route::apiResource('partners', PartnerController::class);
 
     Route::post('/logout', [AuthController::class, 'logout']);

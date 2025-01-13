@@ -7,6 +7,7 @@ use App\Services\ImageService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class PartnerController extends Controller
 {
@@ -132,6 +133,26 @@ class PartnerController extends Controller
         $partner->update($validatedData);
 
         return response()->json($partner, 200);
+    }
+
+    public function getUpcomingBirthdays(Request $request)
+    {
+        $currentDate = now();
+        $currentMonthDay = $currentDate->format('m-d');
+
+        $upcomingBirthdays = Partner::whereRaw("DATE_FORMAT(birthdate, '%m-%d') >= ?", [$currentMonthDay])
+            ->orderByRaw("DATE_FORMAT(birthdate, '%m-%d')")
+            ->get(['name', 'surname', 'birthdate', 'photo']);
+
+        $upcomingBirthdays = $upcomingBirthdays->map(function ($partner) {
+            $partner->formatted_birthday = Carbon::parse($partner->birthdate)->format('d M');
+            return $partner;
+        });
+
+        $limit = (int) $request->query('limit', 5);
+        $upcomingBirthdays = $upcomingBirthdays->take($limit);
+
+        return response()->json($upcomingBirthdays);
     }
 
     public function destroy($id)
